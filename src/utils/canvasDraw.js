@@ -42,15 +42,50 @@ export function drawGrid(ctx, width, height, centerX, centerY, pixelsPerUnit) {
 }
 
 export function drawArrow2D(ctx, vector, centerX, centerY, pixelsPerUnit, color, label, dashed = false) {
+  return drawArrowSegment2D(ctx, [0, 0], vector, centerX, centerY, pixelsPerUnit, color, label, dashed);
+}
+
+export function drawArrowSegment2D(ctx, from, to, centerX, centerY, pixelsPerUnit, color, label, dashed = false, alpha = 1) {
+  const startX = centerX + from[0] * pixelsPerUnit;
+  const startY = centerY - from[1] * pixelsPerUnit;
+  const tipX = centerX + to[0] * pixelsPerUnit;
+  const tipY = centerY - to[1] * pixelsPerUnit;
+  const angle = Math.atan2(tipY - startY, tipX - startX);
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (dashed) ctx.setLineDash([8, 6]);
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.lineTo(tipX, tipY);
+  ctx.stroke();
+
+  const head = 11;
+  ctx.beginPath();
+  ctx.moveTo(tipX, tipY);
+  ctx.lineTo(tipX - head * Math.cos(angle - Math.PI / 6), tipY - head * Math.sin(angle - Math.PI / 6));
+  ctx.lineTo(tipX - head * Math.cos(angle + Math.PI / 6), tipY - head * Math.sin(angle + Math.PI / 6));
+  ctx.closePath();
+  ctx.fill();
+  ctx.font = "13px Consolas";
+  ctx.fillText(label, tipX + 8, tipY - 8);
+  ctx.restore();
+}
+
+export function drawGhostArrow2D(ctx, vector, centerX, centerY, pixelsPerUnit, color, label) {
   const [x, y] = vector;
   const tipX = centerX + x * pixelsPerUnit;
   const tipY = centerY - y * pixelsPerUnit;
   const angle = Math.atan2(tipY - centerY, tipX - centerX);
 
   ctx.save();
-  if (dashed) ctx.setLineDash([8, 6]);
+  ctx.setLineDash([8, 6]);
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
+  ctx.globalAlpha = 0.42;
   ctx.lineWidth = 3.5;
   ctx.beginPath();
   ctx.moveTo(centerX, centerY);
@@ -66,6 +101,45 @@ export function drawArrow2D(ctx, vector, centerX, centerY, pixelsPerUnit, color,
   ctx.fill();
   ctx.font = "13px Consolas";
   ctx.fillText(label, tipX + 8, tipY - 8);
+  ctx.restore();
+}
+
+export function drawPoint2D(ctx, point, centerX, centerY, pixelsPerUnit, color, radius = 5, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(centerX + point[0] * pixelsPerUnit, centerY - point[1] * pixelsPerUnit, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+export function drawConfidenceCircle(ctx, point, radiusUnits, centerX, centerY, pixelsPerUnit, color) {
+  ctx.save();
+  ctx.fillStyle = `${color}22`;
+  ctx.strokeStyle = `${color}aa`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(centerX + point[0] * pixelsPerUnit, centerY - point[1] * pixelsPerUnit, radiusUnits * pixelsPerUnit, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+export function drawPath(ctx, points, centerX, centerY, pixelsPerUnit, color) {
+  if (points.length < 2) return;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = 0.45;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  points.forEach((point, index) => {
+    const x = centerX + point[0] * pixelsPerUnit;
+    const y = centerY - point[1] * pixelsPerUnit;
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -105,19 +179,27 @@ export function drawAngleArc(ctx, a, b, centerX, centerY, pixelsPerUnit) {
 }
 
 export function drawProjectedArrow(ctx, vector, width, height, color, label, globalScale) {
-  const [px, py] = project3D(vector);
+  return drawProjectedSegment(ctx, [0, 0, 0], vector, width, height, color, label, globalScale);
+}
+
+export function drawProjectedSegment(ctx, from, to, width, height, color, label, globalScale, alpha = 1) {
+  const [fromX, fromY] = project3D(from);
+  const [px, py] = project3D(to);
   const originX = width / 2;
   const originY = height / 2 + 16;
+  const startX = originX + fromX * globalScale;
+  const startY = originY - fromY * globalScale;
   const tipX = originX + px * globalScale;
   const tipY = originY - py * globalScale;
-  const angle = Math.atan2(tipY - originY, tipX - originX);
+  const angle = Math.atan2(tipY - startY, tipX - startX);
 
   ctx.save();
+  ctx.globalAlpha = alpha;
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
   ctx.lineWidth = 3.5;
   ctx.beginPath();
-  ctx.moveTo(originX, originY);
+  ctx.moveTo(startX, startY);
   ctx.lineTo(tipX, tipY);
   ctx.stroke();
   const head = 11;
@@ -129,5 +211,20 @@ export function drawProjectedArrow(ctx, vector, width, height, color, label, glo
   ctx.fill();
   ctx.font = "13px Consolas";
   ctx.fillText(label, tipX + 8, tipY - 8);
+  ctx.restore();
+}
+
+export function drawProjectedConfidenceSphere(ctx, point, radiusUnits, width, height, color, globalScale) {
+  const [px, py] = project3D(point);
+  const originX = width / 2;
+  const originY = height / 2 + 16;
+  ctx.save();
+  ctx.fillStyle = `${color}22`;
+  ctx.strokeStyle = `${color}aa`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(originX + px * globalScale, originY - py * globalScale, radiusUnits * globalScale, radiusUnits * globalScale * 0.6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
   ctx.restore();
 }
